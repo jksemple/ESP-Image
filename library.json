@@ -1,0 +1,16 @@
+{
+  "name": "ESP-Image",
+  "version": "0.0.1",
+  "keywords": "esp32",
+  "description": "Manipulate image objects",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jksemple/ESP-Image.git"
+  },
+  "authors": [{
+    "name": "jksemple",
+    "email": "github@semple.org"
+  }],
+  "frameworks": "arduino",
+  "platforms": "espressif32"
+}
