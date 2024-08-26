@@ -64,9 +64,12 @@ class Pixel {
             b(b) {
         };
         Pixel(uint16_t rgb565Value) {
-            r = (rgb565Value & 0xF800) >> 8;
-            g = (rgb565Value & 0x07E0) >> 3;
-            b = (rgb565Value & 0x001F) << 3;
+            // To minimize alterations to the broken esp-camera driver we will have to accept
+            // that RGB565 values will be stored in high-endian form in memory
+            uint16_t lowEndianValue = (rgb565Value & 0xFF00) >> 8 | (rgb565Value & 0xFF) << 8;
+            r = (lowEndianValue & 0xF800) >> 8;
+            g = (lowEndianValue & 0x07E0) >> 3;
+            b = (lowEndianValue & 0x001F) << 3;
         }
         uint8_t r;
         uint8_t g;
