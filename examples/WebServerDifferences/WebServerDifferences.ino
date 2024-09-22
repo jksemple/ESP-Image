@@ -176,6 +176,7 @@ void setup() {
 
   server.on("/click", HTTP_GET, [](AsyncWebServerRequest * request) {
 
+    try {
     Serial.println("Taking a photo...");
     capture();
     if (!fb) {
@@ -236,12 +237,18 @@ void setup() {
       diffBmpImage.fromImage(diffImage).convertTo(IMAGE_BMP);
 
       // Printf style filename argument
-      if (fileImage.fromFile(SD, "/%s.%s", "captured", "bmp").load() == ESP_OK) {
+      if (fileImage.fromFile(SD, "/%s.%s", "captured1", "bmp").load() == ESP_OK) {
         log_i("Loaded ok");
       }
       log_i("Request complete");
       request->send_P(200, "text/plain", String(response).c_str());
     }
+    } 
+    catch (std::exception const& ex) {
+      log_i("Exception: %s", ex.what());
+      request->send_P(200, "text/plain", ex.what());
+    }
+
   });
 
   server.on("/showImage", HTTP_GET, [](AsyncWebServerRequest * request) {

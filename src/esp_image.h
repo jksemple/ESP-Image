@@ -1,8 +1,8 @@
 #include "img_converters.h"
 #include <dl_image.hpp>
 #include <FS.h>
-#include "error.h"
 #include "string.h"
+#include "StringF.h"
 
 typedef enum {
     IMAGE_NONE,
@@ -31,6 +31,16 @@ typedef struct {
         uint8_t *output;
 } jpg_decoder;
 
+typedef enum {
+    IGNORE_MISSING_FILE,
+    THROW_IF_MISSING
+} missing_file_on_load_t;
+
+typedef enum {
+    OVERWRITE_EXISTING_FILE,
+    THROW_IF_EXISTS
+} existing_file_on_save_t;
+
 typedef struct {
     uint32_t filesize;
     uint32_t reserved;
@@ -51,11 +61,13 @@ typedef struct {
 static const int BMP_HEADER_LEN = 54;
 #define TAG ""
 
+// Windows BMP format
 #define BMP_WIDTH_ADDR 0x12
-#define BMP_HEIGHT_ADDR 0x14
-#define BMP_BPP_ADDR 0x18
+#define BMP_HEIGHT_ADDR 0x16
+#define BMP_BPP_ADDR 0x1C
 #define FN_BUF_LEN 60
 
+//static void _free(void* block, const char* FILE, const int LINE);
 class Pixel {
     public:
         Pixel(int r, int g, int b) :
@@ -86,29 +98,31 @@ class Pixel {
 
 class Image {
     public:
-        Image() :
-            error("Image"),
+        Image() : Image("") {};
+        Image(const char* objectName) : 
             type(IMAGE_NONE),
             buffer(NULL),
             width(0),
             height(0),
             len(0),
             timestamp({ 0, 0}),
-            filename("") {
-        };
-        ~Image() {
-            if (buffer) free(buffer);
-        };
+            _sourceName("") {
+                setObjectName(objectName);
+            };
+        ~Image();
         bool hasContent();
-        bool deleteOnSave() { return _deleteOnSave; };
         image_type_t type;
+        String typeName();
         uint8_t* buffer;
         size_t len;
         size_t width;
         size_t height;
         struct timeval timestamp;
-        String filename;
+        String source() { return _sourceName; }
+        String objectName() { return _objectName; };
     private:
+        String _objectName;
+        String _sourceName;
         uint8_t* _sourceBuffer;
         size_t _sourceLen;
         size_t _sourceWidth;
@@ -126,33 +140,30 @@ class Image {
         bool _from = false;
         FS* _targetFS;
         String _targetFilename;
-        bool _deleteOnSave;
         bool _to = false;
         scaling_type_t _scaling;
         jpg_decoder jpeg;
 
     public:
-        Error error;
         Image& fromBuffer(uint8_t* buffer, size_t width, size_t height, size_t len, image_type_t imageType, timeval timestamp = { 0, 0 });
         Image& fromCamera(camera_fb_t* frame);
         Image& setTrueSize();
         Image& fromImage(Image& sourceImage);
         Image& fromFile(FS& fs, const char* format, ...);
-        Image& fromFile(FS& fs, String path);
-        Image& fromFile(FS& fs, String path, image_type_t imageType);
+        Image& fromFile(FS& fs, const String& path);
+        Image& fromFile(FS& fs, const String& path, image_type_t imageType);
         Image& toFile(FS& fs, const char* format, ...);
-        Image& toFile(FS& fs, String path);
-        Error& convertTo(image_type_t newImageType) { return convertTo(newImageType, SCALING_NONE); }
-        Error& convertTo(image_type_t newImageType, scaling_type_t scaling);
-        Error& load();
-        Error& save();
-        Error& setPixel(int x, int y, int r, int g, int b);
+        Image& toFile(FS& fs, const String& path);
+        void convertTo(image_type_t newImageType) { return convertTo(newImageType, SCALING_NONE); }
+        void convertTo(image_type_t newImageType, scaling_type_t scaling);
+        void load(missing_file_on_load_t = IGNORE_MISSING_FILE);
+        void save(existing_file_on_save_t = OVERWRITE_EXISTING_FILE);
+        void setObjectName(String name);
+        void setPixel(int x, int y, int r, int g, int b);
         int greyAt(int x, int y);
         Pixel pixelAt(int x, int y);
         typedef std::function <bool(int x, int y, Pixel thisPixel, Pixel thatPixel)> comparisonFunction;
         float compareWith(Image& that, comparisonFunction func) { return compareWith(that, 1, func); }
         float compareWith(Image& that, int stride, comparisonFunction func);
-        bool isOK() {
-            return error.isOK();
-        }
+        void clear();
 };

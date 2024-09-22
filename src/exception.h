@@ -1,10 +1,10 @@
-#ifndef __ERROR_H
-#define __ERROR_H
+#ifndef __EXCEPTION_H
+#define __EXCEPTION_H
 #include "Arduino.h"
 /**
  * Application error
  */
-class Error {
+class Exception :  {
     public:
         /**
          * 
@@ -104,7 +104,7 @@ class Error {
          * Convert exception to char*
          */
         inline const char* toCString() {
-            return _message.c_str();
+            return toString().c_str();
         }
 
         /**
