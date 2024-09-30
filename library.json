@@ -1,6 +1,6 @@
 {
   "name": "ESP-Image",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "keywords": "esp32",
   "description": "Manipulate image objects",
   "repository": {

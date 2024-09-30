@@ -177,78 +177,67 @@ void setup() {
   server.on("/click", HTTP_GET, [](AsyncWebServerRequest * request) {
 
     try {
-    Serial.println("Taking a photo...");
-    capture();
-    if (!fb) {
-      Serial.println("Failed to capture");
-      request->send_P(200, "text/plain", "failed");
-      return;
-    } else {
-      log_i("Loading from camera");
-      capturedImage.fromCamera(fb).load();
-      //capturedImage.setTrueSize();
-      log_i("Converting to RGB");
-      if (rgbImage.hasContent()) prevRgbImage.fromImage(rgbImage).load();
-      if (bmpImage.hasContent()) prevBmpImage.fromImage(bmpImage).load();
-
-      // Convert captured image to RGB and scale down to 1/4 scale
-      if (rgbImage.fromImage(capturedImage).convertTo(IMAGE_RGB565, SCALING_DIVIDE_4) != ESP_OK) {
-        log_i("Error = %s", rgbImage.error.toCString());
-        request->send(404);
+      Serial.println("Taking a photo...");
+      capture();
+      if (!fb) {
+        Serial.println("Failed to capture");
+        request->send_P(200, "text/plain", "failed");
         return;
-      }
-      // Convert scaled down RGB to BMP so it can be displayed
-      if (bmpImage.fromImage(rgbImage).convertTo(IMAGE_BMP) != ESP_OK) {
-        log_i("Error = %s", bmpImage.error.toCString());
-        request->send(404);
-        return;
-      }
-      if (diffImage.hasContent()) {
-        fileImage.fromImage(diffImage).convertTo(IMAGE_JPEG);
-        fileImage.toFile(SD, "/captured.bmp").save();
-      }
-      // Convert captured image to RGB without scaling so result of compareWith() can be displayed
-      diffImage.fromImage(capturedImage).convertTo(IMAGE_RGB565);
+      } else {
+        log_i("Loading from camera");
+        capturedImage.fromCamera(fb).load();
+        //capturedImage.setTrueSize();
+        log_i("Converting to RGB");
+        if (rgbImage.hasContent()) prevRgbImage.fromImage(rgbImage).load();
+        if (bmpImage.hasContent()) prevBmpImage.fromImage(bmpImage).load();
 
-      String response;
-      int threshold = 50;
-      if (rgbImage.hasContent() && prevRgbImage.hasContent()) {
-        // Compare current RGB image with prevRGB image using a lambda expression
-        // to define the comparison algorithm applied to each pair of compared pixels
-        // This example lambda finds pixels that are significantly lighter than the corresponding
-        // pixel in the previous image
-        // The threshold value is passed into the lambda as a 'capture'
-        float difference = rgbImage.compareWith(prevRgbImage, 1, [threshold] (int x, int y, Pixel thisPixel, Pixel prevPixel) {
-          int prevGreyScale = prevPixel.grey();
-          int newGreyScale = thisPixel.grey();
-          
-          if ((newGreyScale - prevGreyScale) > threshold) {
-            // Plot a red pixel in diffImage where the comparison returns true
-            diffImage.setPixel(4 * x, 4 * y, 255, 0, 0);
-            return true;
-          }
-          return false;
-        });
-        log_i("Difference = %f", difference);
-        response = String("Difference = ");
-        response += String((int)(difference * 100));
-        response += "%";
-      }
-      diffBmpImage.fromImage(diffImage).convertTo(IMAGE_BMP);
+        // Convert captured image to RGB and scale down to 1/4 scale
+        rgbImage.fromImage(capturedImage).convertTo(IMAGE_RGB565, SCALING_DIVIDE_4);
+        // Convert scaled down RGB to BMP so it can be displayed
+        bmpImage.fromImage(rgbImage).convertTo(IMAGE_BMP);
+        if (diffImage.hasContent()) {
+          fileImage.fromImage(diffImage).convertTo(IMAGE_JPEG);
+          fileImage.toFile(SD, "/captured.bmp").save();
+        }
+        // Convert captured image to RGB without scaling so result of compareWith() can be displayed
+        diffImage.fromImage(capturedImage).convertTo(IMAGE_RGB565);
 
-      // Printf style filename argument
-      if (fileImage.fromFile(SD, "/%s.%s", "captured1", "bmp").load() == ESP_OK) {
-        log_i("Loaded ok");
-      }
-      log_i("Request complete");
-      request->send_P(200, "text/plain", String(response).c_str());
+        String response;
+        int threshold = 50;
+        if (rgbImage.hasContent() && prevRgbImage.hasContent()) {
+          // Compare current RGB image with prevRGB image using a lambda expression
+          // to define the comparison algorithm applied to each pair of compared pixels
+          // This example lambda finds pixels that are significantly lighter than the corresponding
+          // pixel in the previous image
+          // The threshold value is passed into the lambda as a 'capture'
+          float difference = rgbImage.compareWith(prevRgbImage, 1, [threshold] (int x, int y, Pixel thisPixel, Pixel prevPixel) {
+            int prevGreyScale = prevPixel.grey();
+            int newGreyScale = thisPixel.grey();
+            
+            if ((newGreyScale - prevGreyScale) > threshold) {
+              // Plot a red pixel in diffImage where the comparison returns true
+              diffImage.setPixel(4 * x, 4 * y, 255, 0, 0);
+              return true;
+            }
+            return false;
+          }, noMask);
+          log_i("Difference = %f", difference);
+          response = String("Difference = ");
+          response += String((int)(difference * 100));
+          response += "%";
+        }
+        diffBmpImage.fromImage(diffImage).convertTo(IMAGE_BMP);
+
+        // Printf style filename argument
+        fileImage.fromFile(SD, "/%s.%s", "captured1", "bmp").load();
+        log_i("Request complete");
+        request->send_P(200, "text/plain", String(response).c_str());
+      } 
     }
-    } 
     catch (std::exception const& ex) {
       log_i("Exception: %s", ex.what());
       request->send_P(200, "text/plain", ex.what());
     }
-
   });
 
   server.on("/showImage", HTTP_GET, [](AsyncWebServerRequest * request) {

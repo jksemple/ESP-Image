@@ -462,7 +462,7 @@ void Image::load(missing_file_on_load_t missing_file_option) {
 	height = _targetHeight;
 	type = _targetType;
 	timestamp = _targetTimestamp;
-	log_i("%s: loaded %s (%d x %d) from %s", objectName().c_str(), typeName(), width, height, source());
+	log_i("%s: loaded %s (%d x %d) from %s", objectName().c_str(), typeName(), width, height, source().c_str());
  	return;
 }
 
@@ -582,6 +582,11 @@ Pixel Image::pixelAt(int x, int y) {
 		throw std::invalid_argument(StringF("[%s:%d] %s: Cannot get pixelAt() for %s", __FILE__, __LINE__, objectName().c_str(), typeName().c_str()).c_str());
 	}
 }
+
+bool noMask(int x, int y) {
+	return true;
+}
+
 // Compare this image with another similar one
 // The comparisonFunction can be a lambda or some other form of std::function but it must:
 // - accept an x and y position of Pixels being compared
@@ -589,7 +594,7 @@ Pixel Image::pixelAt(int x, int y) {
 // - return a true/false value that indicates if the compared Pixels differ in some arbitrary way
 //   by more than a threshold value.  False indicates no significant difference
 // The compareWith() method returns a float being the number of such differing pixels divided by the number of pixels checked.
-float Image::compareWith(Image& that, int stride, comparisonFunction func) {
+float Image::compareWith(Image& that, int stride, comparisonFunction compareFunc, maskFunction maskFunc) {
 	if (width != that.width && height != that.height) {
 		throw std::invalid_argument(StringF("[%s:%d] %s and %s are not the same size", __FILE__, __LINE__, objectName().c_str(), that.objectName().c_str()).c_str());
 	}
@@ -603,8 +608,10 @@ float Image::compareWith(Image& that, int stride, comparisonFunction func) {
 	int diffCount = 0;
 	for (int y = 0; y < height; y += stride) {
 		for (int x = 0; x < width; x += stride) {
-			comparedCount ++;
-			diffCount += func(x, y, pixelAt(x, y), that.pixelAt(x, y)) ? 1 : 0;
+			if (maskFunc(x, y)) {
+				comparedCount ++;
+				diffCount += compareFunc(x, y, pixelAt(x, y), that.pixelAt(x, y)) ? 1 : 0;
+			}
 		}
 	}
 	return (float)diffCount / comparedCount;

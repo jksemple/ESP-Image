@@ -15,6 +15,12 @@ Images can be converted from their current type to a new type e.g. JPEG to RGB56
 
 Images in either RGB565 or RGB888 can be edited (pixel values altered)
 
+## Comparison
+
+Two images can be compared pixel by pixel using .compareWith(). This takes a comparison function that defines how a pixel pair is to be compared. It must return either true (if there is a difference) or false but the algorithm is up to the developer.  
+It also takes an optional masking function which defines whether the pixel pair is to be compared (if true) or skipped (if false).
+The compareWith() method itself returns a float which is the ratio of the count of 'different' pixels divided by the count of all pixels that were compared after masking.
+
 ## Saving
 
 Images in a saveable format i.e. JPEG or BMP can be saved to storage.  BMP is used to preserve 100% of the detail in the image, JPG is smaller and faster to save but loses some pixel-level detail.
@@ -51,7 +57,7 @@ myImage1.setPixel(x, y, 255, 0, 0);
 ```cpp
 float difference = myImage1.compareWith(myImage2, 1, [], (int x, int y, Pixel thisPixel, Pixel thatPixel) {
 	return (thisPixel.grey() != thatPixel.grey());
-}
+}, noMask);
 ```
 
 #### Save example

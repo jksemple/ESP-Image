@@ -1,5 +1,7 @@
+#ifndef ESP_IMAGE_H
+#define ESP_IMAGE_H
 #include "img_converters.h"
-#include <dl_image.hpp>
+//#include <dl_image.hpp>
 #include <FS.h>
 #include "string.h"
 #include "StringF.h"
@@ -67,7 +69,6 @@ static const int BMP_HEADER_LEN = 54;
 #define BMP_BPP_ADDR 0x1C
 #define FN_BUF_LEN 60
 
-//static void _free(void* block, const char* FILE, const int LINE);
 class Pixel {
     public:
         Pixel(int r, int g, int b) :
@@ -95,6 +96,13 @@ class Pixel {
             return grey;
         }
 };
+
+typedef std::function <bool(int x, int y, Pixel thisPixel, Pixel thatPixel)> comparisonFunction;
+typedef std::function <bool(int x, int y)> maskFunction;
+
+bool noMask(int x, int y);
+//#define noMask [](int x, int y) { return true; }
+//maskFunction noMask;
 
 class Image {
     public:
@@ -162,8 +170,10 @@ class Image {
         void setPixel(int x, int y, int r, int g, int b);
         int greyAt(int x, int y);
         Pixel pixelAt(int x, int y);
-        typedef std::function <bool(int x, int y, Pixel thisPixel, Pixel thatPixel)> comparisonFunction;
-        float compareWith(Image& that, comparisonFunction func) { return compareWith(that, 1, func); }
-        float compareWith(Image& that, int stride, comparisonFunction func);
+        float compareWith(Image& that, comparisonFunction cFunc) { return compareWith(that, 1, cFunc, noMask);}
+        float compareWith(Image& that, int stride, comparisonFunction cFunc) { return compareWith(that, stride, cFunc, noMask); }
+        float compareWith(Image& that, comparisonFunction cFunc, maskFunction mFunc) { return compareWith(that, 1, cFunc, mFunc); }
+        float compareWith(Image& that, int stride, comparisonFunction func, maskFunction mFunc);
         void clear();
 };
+#endif
