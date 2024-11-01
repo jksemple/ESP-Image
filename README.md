@@ -25,6 +25,14 @@ The compareWith() method itself returns a float which is the ratio of the count 
 
 Images in a saveable format i.e. JPEG or BMP can be saved to storage.  BMP is used to preserve 100% of the detail in the image, JPG is smaller and faster to save but loses some pixel-level detail.
 
+## Metadata
+
+Each Image object has a collection of metadata comprising a label and a string value, which can be used to hold any metadata values that need to accompany images through their app life.  
+Metadata is persisted to file storage as a JSON file e.g. foor.jpg has a foo.json metadata file.  There are no default labels or values. None of the metadata values are linked to object properties.
+A new entry is created automatically when a label is first used.
+
+In a future release it will be possible to mark some or all of these metadata values to be saved as EXIF properties when saving a JPEG.
+
 ## Classes
 
 The main class in this library is Image which is supported with a Pixel class to assist with the RGB565/RGB888 conversions
@@ -71,4 +79,10 @@ try {
 } catch(std::exception const& ex) {
   Serial.printf("Exception %s\n", ex.what());
 }
+```
+
+#### Metadata
+```cpp
+myImage1.metadata["size"] = "640x480";
+int brightest = myImage1.metadata["brightest pixel value"].toInt();
 ```

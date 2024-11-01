@@ -54,7 +54,8 @@ Image prevRgbImage;
 Image prevBmpImage;
 Image diffImage;
 Image diffBmpImage;
-Image fileImage;
+Image savedImage;
+Image loadedImage;
 
 const char index_html[] PROGMEM = R"raw(
 <!DOCTYPE HTML><html lang="en">
@@ -86,7 +87,11 @@ const char index_html[] PROGMEM = R"raw(
   <td width="20%"><img src="/showImage?image=file" id="fileImage" width="100%"></td>
   </tr>
   <tr>
-  <td>JPG 240x240</td><td>BMP 60x60</td><td>BMP 60x60</td><td>BMP 240x240<br/><div id="response"></div></td><td>JPG 240x240</tr>
+  <td><div id=capturedImageMetadata></div></td>
+  <td><div id=rgbImagePrevMetadata></div></td>
+  <td><div id=rgbImageMetadata></div>
+  <td><div id=diffImageMetadata></div>
+  <td><div id=fileImageMetadata></div>
   </tr>
   </table>
 
@@ -96,12 +101,17 @@ const char index_html[] PROGMEM = R"raw(
       xhttp.open('GET', "/click", true);
       xhttp.onload = function() {
         //alert("onload");
+        var metadataContents = this.responseText.split("|");
         document.getElementById("capturedImage").src = "/showImage?image=captured#" + new Date().getTime();
-        document.getElementById("rgbImage").src = "/showImage?image=rgb#" + new Date().getTime();
+        document.getElementById("capturedImageMetadata").innerHTML = metadataContents[0];
         document.getElementById("rgbImagePrev").src = "/showImage?image=rgbPrev#" + new Date().getTime();
+        document.getElementById("rgbImagePrevMetadata").innerHTML = metadataContents[2];
+        document.getElementById("rgbImage").src = "/showImage?image=rgb#" + new Date().getTime();
+        document.getElementById("rgbImageMetadata").innerHTML = metadataContents[1];
         document.getElementById("diffImage").src = "/showImage?image=diff#" + new Date().getTime();
+        document.getElementById("diffImageMetadata").innerHTML = metadataContents[3];
         document.getElementById("fileImage").src = "/showImage?image=file#" + new Date().getTime();
-        document.getElementById("response").innerHTML = this.responseText;
+        document.getElementById("fileImageMetadata").innerHTML = metadataContents[4];
       }
       xhttp.send();
     }
@@ -110,9 +120,14 @@ const char index_html[] PROGMEM = R"raw(
 </html>
 )raw";
 
+String metadataDump(Image& i) {
+  String m;
+  for(auto md : i.metadata) {
+    m += StringF("%s : %s <br/>", md.first, md.second );
+  }
+  return m;
+}
 void setup() {
-  
-  //auto test = _malloc(1);
   
   Serial.begin(115200);
 
@@ -186,31 +201,39 @@ void setup() {
       } else {
         log_i("Loading from camera");
         capturedImage.fromCamera(fb).load();
-        //capturedImage.setTrueSize();
+        capturedImage.metadata["size"] = StringF("%dx%d", capturedImage.width, capturedImage.height);
+        capturedImage.metadata["type"] = "JPG";
         log_i("Converting to RGB");
         if (rgbImage.hasContent()) prevRgbImage.fromImage(rgbImage).load();
         if (bmpImage.hasContent()) prevBmpImage.fromImage(bmpImage).load();
 
         // Convert captured image to RGB and scale down to 1/4 scale
         rgbImage.fromImage(capturedImage).convertTo(IMAGE_RGB565, SCALING_DIVIDE_4);
+        rgbImage.metadata["size"] = StringF("%dx%d", rgbImage.width, rgbImage.height);
+        rgbImage.metadata["type"] = "RGB565";
         // Convert scaled down RGB to BMP so it can be displayed
         bmpImage.fromImage(rgbImage).convertTo(IMAGE_BMP);
+        bmpImage.metadata["size"] = StringF("%dx%d", rgbImage.width, rgbImage.height);
+        bmpImage.metadata["type"] = "BMP";
         if (diffImage.hasContent()) {
-          fileImage.fromImage(diffImage).convertTo(IMAGE_JPEG);
-          fileImage.toFile(SD, "/captured.bmp").save();
+          savedImage.fromImage(diffImage).convertTo(IMAGE_JPEG);
+          savedImage.metadata["size"] = StringF("%dx%d", savedImage.width, savedImage.height);
+          savedImage.metadata["type"] = "JPG";
+          savedImage.metadata["filename"] = "/captured.jpg";
+          savedImage.toFile(SD, "/captured.jpg").save();
         }
         // Convert captured image to RGB without scaling so result of compareWith() can be displayed
         diffImage.fromImage(capturedImage).convertTo(IMAGE_RGB565);
 
-        String response;
         int threshold = 50;
+        float difference;
         if (rgbImage.hasContent() && prevRgbImage.hasContent()) {
           // Compare current RGB image with prevRGB image using a lambda expression
           // to define the comparison algorithm applied to each pair of compared pixels
           // This example lambda finds pixels that are significantly lighter than the corresponding
           // pixel in the previous image
           // The threshold value is passed into the lambda as a 'capture'
-          float difference = rgbImage.compareWith(prevRgbImage, 1, [threshold] (int x, int y, Pixel thisPixel, Pixel prevPixel) {
+          difference = rgbImage.compareWith(prevRgbImage, 1, [threshold] (int x, int y, Pixel thisPixel, Pixel prevPixel) {
             int prevGreyScale = prevPixel.grey();
             int newGreyScale = thisPixel.grey();
             
@@ -222,15 +245,24 @@ void setup() {
             return false;
           }, noMask);
           log_i("Difference = %f", difference);
-          response = String("Difference = ");
-          response += String((int)(difference * 100));
-          response += "%";
         }
         diffBmpImage.fromImage(diffImage).convertTo(IMAGE_BMP);
-
+        diffImage.metadata["size"] = StringF("%dx%d", diffBmpImage.width, diffBmpImage.height);
+        diffImage.metadata["type"] = "BMP";
+        diffImage.metadata["diff"] = StringF("%2d&percnt;", (int)(difference * 100));
         // Printf style filename argument
-        fileImage.fromFile(SD, "/%s.%s", "captured1", "bmp").load();
+        loadedImage.fromFile(SD, "/%s.%s", "captured", "jpg").load();
         log_i("Request complete");
+
+        String response = metadataDump(capturedImage);
+        response += "|";
+        response += metadataDump(prevRgbImage);
+        response += "|";
+        response += metadataDump(rgbImage);
+        response += "|";
+        response += metadataDump(diffImage);
+        response += "|";
+        response += metadataDump(loadedImage);
         request->send_P(200, "text/plain", String(response).c_str());
       } 
     }
@@ -261,7 +293,7 @@ void setup() {
       pImage = &diffBmpImage;
     } else 
     if (imageToShow == "file") {
-      pImage = &fileImage;
+      pImage = &loadedImage;
     } 
             
     if (pImage->hasContent()) {
