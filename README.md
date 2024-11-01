@@ -28,7 +28,7 @@ Images in a saveable format i.e. JPEG or BMP can be saved to storage.  BMP is us
 ## Metadata
 
 Each Image object has a collection of metadata comprising a label and a string value, which can be used to hold any metadata values that need to accompany images through their app life.  
-Metadata is persisted to file storage as a JSON file e.g. foor.jpg has a foo.json metadata file.  There are no default labels or values. None of the metadata values are linked to object properties.
+Metadata is persisted to file storage as a JSON file e.g. foo.jpg has a foo.json metadata file.  There are no default labels or values. None of the metadata values are linked to object properties.
 A new entry is created automatically when a label is first used.
 
 In a future release it will be possible to mark some or all of these metadata values to be saved as EXIF properties when saving a JPEG.
